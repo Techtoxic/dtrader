@@ -19,19 +19,24 @@ export const getBrandLogo = () => {
  * Matches against the configured brand_hostname.production value.
  */
 export const isProduction = (): boolean => {
-    if (typeof window === 'undefined') return false;
+    if (typeof window === 'undefined') return true; // Default to production for SSR
     const hostname = window.location.hostname;
     const production_hostname = config_data.brand_hostname.production;
+    // If no staging defined, always treat as production
+    const hasStaging = 'staging' in config_data.brand_hostname;
+    if (!hasStaging) return true;
     return hostname === production_hostname;
 };
 
 export const getBrandHostname = () => {
-    const hostname = isProduction() ? config_data.brand_hostname.production : config_data.brand_hostname.staging;
+    const cfg = config_data.brand_hostname as Record<string, string>;
+    const hostname = isProduction() ? cfg.production : (cfg.staging ?? cfg.production);
     return substituteDerivDomain(hostname);
 };
 
 export const getBrandUrl = () => {
-    const hostname = isProduction() ? config_data.brand_hostname.production : config_data.brand_hostname.staging;
+    const cfg = config_data.brand_hostname as Record<string, string>;
+    const hostname = isProduction() ? cfg.production : (cfg.staging ?? cfg.production);
     return `https://${substituteDerivDomain(hostname)}`;
 };
 
@@ -72,10 +77,11 @@ export const getPlatformDescription = (): string => {
 
 export const getAppId = (): number => {
     const app_id = (config_data as Record<string, unknown> & typeof config_data).app_id as
-        | { staging: number; production: number }
+        | { staging?: number; production: number }
         | undefined;
     if (!app_id) return 16929;
-    return isProduction() ? app_id.production : app_id.staging;
+    if (isProduction() || !app_id.staging) return app_id.production;
+    return app_id.staging;
 };
 // [/AI]
 
@@ -146,16 +152,18 @@ export const getRedirectHostname = (): string => {
  */
 export const getApiV4BaseUrl = (): string => {
     const cfg = config_data as Record<string, unknown> & typeof config_data;
-    const derivws = cfg.derivws as { staging: string; production: string } | undefined;
+    const derivws = cfg.derivws as { staging?: string; production: string } | undefined;
     if (!derivws) return 'https://api.derivws.com';
-    return isProduction() ? derivws.production : derivws.staging;
+    if (isProduction() || !derivws.staging) return derivws.production;
+    return derivws.staging;
 };
 
 /**
  * Gets the auth base URL (e.g., "https://auth.deriv.com")
  */
 export const getAuthBaseUrl = (): string => {
-    return isProduction() ? config_data.auth.production : config_data.auth.staging;
+    const auth = config_data.auth as Record<string, string>;
+    return isProduction() || !auth.staging ? auth.production : auth.staging;
 };
 
 export const getOAuthClientId = (): string => {
@@ -175,10 +183,11 @@ export const getOAuthAppId = (): string => {
 };
 
 export const getOAuthRedirectUri = (): string => {
-    const auth = config_data.auth as Record<string, unknown>;
-    return isProduction()
-        ? ((auth.oauth_redirect_uri_production as string) ?? '')
-        : ((auth.oauth_redirect_uri_staging as string) ?? '');
+    const auth = config_data.auth as Record<string, string>;
+    if (isProduction() || !auth.oauth_redirect_uri_staging) {
+        return auth.oauth_redirect_uri_production ?? '';
+    }
+    return auth.oauth_redirect_uri_staging ?? '';
 };
 
 /**
@@ -186,7 +195,8 @@ export const getOAuthRedirectUri = (): string => {
  * @returns WebSocket server URL with base path (e.g., "staging-api-core.deriv.com/options/v1/ws")
  */
 export const getWebSocketURL = (): string => {
-    const base = isProduction() ? config_data.api_core.production : config_data.api_core.staging;
+    const api_core = config_data.api_core as Record<string, string>;
+    const base = isProduction() || !api_core.staging ? api_core.production : api_core.staging;
     return `${substituteDerivDomain(base)}/options/v1/ws`;
 };
 
@@ -195,7 +205,8 @@ export const getWebSocketURL = (): string => {
  * @returns Whoami endpoint URL (e.g., "https://auth.deriv.com/sessions/whoami")
  */
 export const getWhoAmIURL = (): string => {
-    const base = isProduction() ? config_data.auth.production : config_data.auth.staging;
+    const auth = config_data.auth as Record<string, string>;
+    const base = isProduction() || !auth.staging ? auth.production : auth.staging;
     return substituteDerivDomain(`${base}/sessions/whoami`);
 };
 
@@ -204,7 +215,8 @@ export const getWhoAmIURL = (): string => {
  * @returns Logout endpoint URL (e.g., "https://auth.deriv.com/self-service/logout/browser")
  */
 export const getLogoutURL = (): string => {
-    const base = isProduction() ? config_data.auth.production : config_data.auth.staging;
+    const auth = config_data.auth as Record<string, string>;
+    const base = isProduction() || !auth.staging ? auth.production : auth.staging;
     return substituteDerivDomain(`${base}/self-service/logout/browser`);
 };
 
@@ -213,7 +225,8 @@ export const getLogoutURL = (): string => {
  * @returns API Core base URL (without protocol)
  */
 export const getApiCoreUrl = (): string => {
-    const url = isProduction() ? config_data.api_core.production : config_data.api_core.staging;
+    const api_core = config_data.api_core as Record<string, string>;
+    const url = isProduction() || !api_core.staging ? api_core.production : api_core.staging;
     return substituteDerivDomain(url);
 };
 
@@ -230,7 +243,8 @@ export const getApiCoreBaseUrl = (): string => {
  * @returns API base URL (without protocol), e.g. "api.deriv.be"
  */
 export const getApiUrl = (): string => {
-    const url = isProduction() ? config_data.api.production : config_data.api.staging;
+    const api = config_data.api as Record<string, string>;
+    const url = isProduction() || !api.staging ? api.production : api.staging;
     return substituteDerivDomain(url);
 };
 
@@ -256,18 +270,18 @@ export const getHelpCentreUrl = (): string => {
 
 export const getDepositUrl = (): string => {
     const deposit = (config_data as Record<string, unknown>).deposit_url as
-        | { staging: string; production: string }
+        | { staging?: string; production: string }
         | undefined;
     if (!deposit) return '';
-    return substituteDerivDomain(isProduction() ? deposit.production : deposit.staging);
+    return substituteDerivDomain(isProduction() || !deposit.staging ? deposit.production : deposit.staging);
 };
 
 export const getSignupUrl = (): string => {
     const signup = (config_data as Record<string, unknown>).signup_url as
-        | { staging: string; production: string }
+        | { staging?: string; production: string }
         | undefined;
     if (!signup) return '';
-    return substituteDerivDomain(isProduction() ? signup.production : signup.staging);
+    return substituteDerivDomain(isProduction() || !signup.staging ? signup.production : signup.staging);
 };
 
 export const isFeatureEnabled = (feature: 'dark_mode' | 'language_switcher'): boolean => {
