@@ -162,7 +162,7 @@ export const getApiV4BaseUrl = (): string => {
  * Gets the auth base URL (e.g., "https://auth.deriv.com")
  */
 export const getAuthBaseUrl = (): string => {
-    const auth = config_data.auth as Record<string, string>;
+    const auth = config_data.auth as { production: string; staging?: string };
     return isProduction() || !auth.staging ? auth.production : auth.staging;
 };
 
@@ -183,7 +183,7 @@ export const getOAuthAppId = (): string => {
 };
 
 export const getOAuthRedirectUri = (): string => {
-    const auth = config_data.auth as Record<string, string>;
+    const auth = config_data.auth as { oauth_redirect_uri_production: string; oauth_redirect_uri_staging?: string };
     if (isProduction() || !auth.oauth_redirect_uri_staging) {
         return auth.oauth_redirect_uri_production ?? '';
     }
@@ -205,7 +205,7 @@ export const getWebSocketURL = (): string => {
  * @returns Whoami endpoint URL (e.g., "https://auth.deriv.com/sessions/whoami")
  */
 export const getWhoAmIURL = (): string => {
-    const auth = config_data.auth as Record<string, string>;
+    const auth = config_data.auth as { production: string; staging?: string };
     const base = isProduction() || !auth.staging ? auth.production : auth.staging;
     return substituteDerivDomain(`${base}/sessions/whoami`);
 };
@@ -215,7 +215,7 @@ export const getWhoAmIURL = (): string => {
  * @returns Logout endpoint URL (e.g., "https://auth.deriv.com/self-service/logout/browser")
  */
 export const getLogoutURL = (): string => {
-    const auth = config_data.auth as Record<string, string>;
+    const auth = config_data.auth as { production: string; staging?: string };
     const base = isProduction() || !auth.staging ? auth.production : auth.staging;
     return substituteDerivDomain(`${base}/self-service/logout/browser`);
 };
